@@ -10,7 +10,7 @@ def home():
         <title>CI/CD Pipeline</title>
         <style>
           body {
-            background-color: #72bf6a; /* Light blue background */
+            background-color: #lightgreen; /* Light blue background */
             display: flex;
             justify-content: center;
             align-items: center;
