@@ -3,8 +3,9 @@ pipeline {
 
     environment {
         APP_DIR = '.'                    // Your app directory
-        TARGET_EC2 = '18.223.28.39'     // Replace with your EC2 IP
-        DOCKER_USERNAME = 'shriya01'    // Your Docker Hub username
+        TARGET_EC2 = '18.223.28.39'     // Your EC2 public IP
+        SSH_CREDENTIALS = 'ec2-ssh-key' // Jenkins credential ID for your EC2 private key
+        DOCKER_USERNAME = 'shriya01'    // Docker Hub username
         DOCKER_IMAGE = "${DOCKER_USERNAME}/python-app:latest"
     }
 
@@ -40,9 +41,24 @@ pipeline {
             }
         }
 
+        stage('Deploy to EC2') {
+            steps {
+                echo "🚀 Deploying Docker container to EC2"
+                sshagent([SSH_CREDENTIALS]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${TARGET_EC2} \\
+                        'docker pull ${DOCKER_IMAGE} &&
+                         docker stop python-app || true &&
+                         docker rm python-app || true &&
+                         docker run -d -p 5000:5000 --name python-app --restart unless-stopped ${DOCKER_IMAGE}'
+                    """
+                }
+            }
+        }
+
         stage('Verify Application') {
             steps {
-                echo "✅ Application deployed. You can verify on http://${TARGET_EC2}:5000"
+                echo "✅ Application deployed. Access it at http://${TARGET_EC2}:5000"
             }
         }
     }
