@@ -4,8 +4,7 @@ pipeline {
     environment {
         APP_DIR = '.'                    // Your app directory
         TARGET_EC2 = '18.223.28.39'     // Replace with your EC2 IP
-        DOCKER_USERNAME = 'shriya01'    // Your Docker Hub username
-        DOCKER_IMAGE = "${DOCKER_USERNAME}/python-app:latest"
+        DOCKER_IMAGE = ""                // Will be set dynamically after login
     }
 
     stages {
@@ -21,7 +20,6 @@ pipeline {
                 echo "🐳 Building Docker image"
                 sh """
                     docker build -t python-app:latest ${APP_DIR}
-                    docker tag python-app:latest ${DOCKER_IMAGE}
                 """
             }
         }
@@ -29,10 +27,22 @@ pipeline {
         stage('Push Docker Image to Docker Hub') {
             steps {
                 echo "📤 Pushing Docker image to Docker Hub"
-                withCredentials([string(credentialsId: 'docker-hub-token', variable: 'DOCKER_TOKEN')]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-hub-token',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    script {
+                        // Tag image dynamically after login
+                        env.DOCKER_IMAGE = "${DOCKER_USERNAME}/python-app:latest"
+                    }
                     sh """
-                        echo $DOCKER_TOKEN | docker login -u ${DOCKER_USERNAME} --password-stdin
-                        docker push ${DOCKER_IMAGE}
+                        echo "Logging in to Docker Hub..."
+                        docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+                        docker tag python-app:latest $DOCKER_IMAGE
+                        docker push $DOCKER_IMAGE
                         docker logout
                     """
                 }
