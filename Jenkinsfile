@@ -42,7 +42,7 @@ pipeline {
         stage('Deploy on EC2') {
             steps {
                 echo "🚀 Deploying app on EC2"
-                sshagent(['ubuntu']) {
+                sshagent(['ec2-ssh-key']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ubuntu@${TARGET_EC2} '
                             docker login -u ${DOCKER_USERNAME} -p ${DOCKER_TOKEN} &&
