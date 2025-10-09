@@ -3,11 +3,9 @@ pipeline {
 
     environment {
         IMAGE_NAME = "python-app:latest"
-        APP_PORT = 5000
-        DEPLOY_USER = "ubuntu"
-        DEPLOY_HOST = "18.223.28.39"    // ✅ Replace with your EC2 public IP
-        SSH_CREDENTIALS = "ec2-ssh-key" // ✅ Jenkins SSH credentials ID
-        APP_DIR = "/home/ubuntu/app"    // App folder on target EC2
+        APP_PORT   = 5000
+        TF_DIR     = "terraform"   // Terraform folder inside Python-app
+        APP_DIR    = "/home/ubuntu/python-app" // Remote folder on EC2
     }
 
     stages {
@@ -18,23 +16,32 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Terraform Init & Apply') {
             steps {
-                echo "🐳 Building Docker image"
-                sh 'docker build -t ${IMAGE_NAME} .'
+                dir("${TF_DIR}") {
+                    sh 'terraform init'
+                    sh 'terraform apply -auto-approve'
+                }
             }
         }
 
-        stage('Push Docker Image to Target EC2') {
+        stage('Build Docker Image') {
+            steps {
+                echo "🐳 Building Docker image"
+                dir('.') {
+                    sh 'docker build -t ${IMAGE_NAME} .'
+                }
+            }
+        }
+
+        stage('Push App Files to EC2') {
             steps {
                 echo "📦 Copying app files to EC2"
-                sshagent (credentials: ["${SSH_CREDENTIALS}"]) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} '
-                            mkdir -p ${APP_DIR}
-                        '
-                        scp -o StrictHostKeyChecking=no -r * ${DEPLOY_USER}@${DEPLOY_HOST}:${APP_DIR}/
-                    '''
+                sshagent(['ubuntu']) { // Use your Jenkins SSH credential ID
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@18.223.28.39 'mkdir -p ${APP_DIR}'
+                        scp -o StrictHostKeyChecking=no -r * ubuntu@18.223.28.39:${APP_DIR}/
+                    """
                 }
             }
         }
@@ -42,34 +49,39 @@ pipeline {
         stage('Deploy on EC2') {
             steps {
                 echo "🚀 Deploying Docker container on EC2"
-                sshagent (credentials: ["${SSH_CREDENTIALS}"]) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} '
-                            cd ${APP_DIR} &&
-                            docker stop python-app || true &&
-                            docker rm python-app || true &&
-                            docker build -t ${IMAGE_NAME} . &&
+                sshagent(['ubuntu']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@18.223.28.39 '
+                            docker stop python-app || true
+                            docker rm python-app || true
                             docker run -d --name python-app -p ${APP_PORT}:${APP_PORT} ${IMAGE_NAME}
                         '
-                    '''
+                    """
                 }
             }
         }
 
         stage('Verify Application') {
             steps {
-                echo "🔍 Verifying the app is running"
-                sh "curl -f http://${DEPLOY_HOST}:${APP_PORT} || (echo 'App not responding' && exit 1)"
+                script {
+                    echo "🔍 Verifying application"
+                    // Get EC2 public IP from Terraform output
+                    def ec2_ip = sh(script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip", returnStdout: true).trim()
+                    echo "EC2 Public IP: ${ec2_ip}"
+
+                    // Verify app is running
+                    sh "curl -f http://${ec2_ip}:${APP_PORT} || (echo 'App not responding' && exit 1)"
+                }
             }
         }
     }
 
     post {
         success {
-            echo '✅ Pipeline completed successfully and app deployed to EC2!'
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Check logs for errors.'
+            echo '❌ Pipeline failed. Check logs.'
         }
     }
 }
