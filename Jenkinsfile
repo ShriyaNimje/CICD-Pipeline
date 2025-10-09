@@ -6,7 +6,7 @@ pipeline {
         APP_PORT = 5000
         APP_DIR = "."          // Python-app folder (Jenkinsfile is here)
         TARGET_EC2 = "18.223.28.39"  // Replace with your EC2 public IP
-        SSH_CREDENTIALS = "ubuntu"   // Jenkins SSH credentials ID
+        SSH_CREDENTIALS = "ec2-ssh-key"   // Jenkins SSH credentials ID
     }
 
     stages {
