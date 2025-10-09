@@ -29,7 +29,7 @@ pipeline {
         stage('Push Docker Image to Docker Hub') {
             steps {
                 echo "📤 Pushing Docker image to Docker Hub"
-                withCredentials([string(credentialsId: 'docker-hub-cred', variable: 'DOCKER_TOKEN')]) {
+                withCredentials([string(credentialsId: 'docker-hub-token', variable: 'DOCKER_TOKEN')]) {
                     sh """
                         echo $DOCKER_TOKEN | docker login -u ${DOCKER_USERNAME} --password-stdin
                         docker push ${DOCKER_IMAGE}
