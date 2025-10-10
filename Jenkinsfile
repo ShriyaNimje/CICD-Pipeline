@@ -12,14 +12,14 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                echo "🔹 Checking out code from GitHub"
+                echo "Checking out code from GitHub"
                 checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "🐳 Building Docker image"
+                echo "Building Docker image"
                 sh """
                     docker build -t python-app:latest ${APP_DIR}
                     docker tag python-app:latest ${DOCKER_IMAGE}
@@ -29,7 +29,7 @@ pipeline {
 
         stage('Push Docker Image to Docker Hub') {
             steps {
-                echo "📤 Pushing Docker image to Docker Hub"
+                echo "Pushing Docker image to Docker Hub"
                 withCredentials([string(credentialsId: 'docker-hub-token', variable: 'DOCKER_TOKEN')]) {
                     sh """
                         echo "Logging in to Docker Hub..."
@@ -43,7 +43,7 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                echo "🚀 Deploying Docker container to EC2"
+                echo "Deploying Docker container to EC2"
                 sshagent([SSH_CREDENTIALS]) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ubuntu@${TARGET_EC2} \\
@@ -58,17 +58,17 @@ pipeline {
 
         stage('Verify Application') {
             steps {
-                echo "✅ Application deployed. Access it at http://${TARGET_EC2}:5000"
+                echo "Application deployed. Access it at http://${TARGET_EC2}:5000"
             }
         }
     }
 
     post {
         failure {
-            echo "❌ Pipeline failed. Check logs."
+            echo "Pipeline failed. Check logs."
         }
         success {
-            echo "🎉 Pipeline completed successfully!"
+            echo "Pipeline completed successfully!"
         }
     }
 }
